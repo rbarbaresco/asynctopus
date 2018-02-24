@@ -10,24 +10,27 @@ import (
 	//"io/ioutil"
 	"net/http"
 	//"time"
-	"log"
+	//"log"
+	"math/rand"
 
 	"github.com/graphql-go/graphql"
 	//"github.com/adjust/rmq"
 	"github.com/streadway/amqp"
 )
 
-type request struct {
-	method string
-	url   string
-	body   string
-	headers   string
-	callback_url   string
-	pid   string
+type Request struct {
+	method string 			`json:"method"`
+	url   string 			`json:"url"`
+	body   string 			`json:"body"`
+	headers   string 		`json:"headers"`
+	callback_url   string 	`json:"callback_url"`
+	pid   string 			`json:"pid"`
 	//executing bool
 }
 
-var tasks_queue []request
+var QUEUE_NAME = "asynctopus_task_queue"
+var RABBITMQ_URL = "amqp://guest:guest@localhost:5672/"
+var CONSUMERS_SIZE = 5
 
 /*
    Create User object type with fields "id" and "name" by using GraphQLObjectTypeConfig:
@@ -97,42 +100,16 @@ var queryType = graphql.NewObject(
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					fmt.Println("Came here :) req2")
-
-					var req request = request{}
-
-					if val, ok := p.Args["method"].(string); ok {
-						req.method = val
-					}
-
-					if val, ok := p.Args["url"].(string); ok {
-						req.url = val
-					}
-
-					if val, ok := p.Args["body"].(string); ok {
-						req.body = val
-					}
-
-					if val, ok := p.Args["headers"].(string); ok {
-						req.headers = val
-					}
-
-					if val, ok := p.Args["callback_url"].(string); ok {
-						req.callback_url = val
-					}
-
-					req.pid = "SOME_RANDOM PID"
 					
-
-
-					var reque = append(tasks_queue, req)
-					fmt.Println(tasks_queue)
-					return reque, nil
-					/*idQuery, isOK := p.Args["id"].(string)
-					if isOK {
-						return data[idQuery], nil
+					jsonObject, err := json.Marshal(createTask(p.Args))
+					if err != nil {
+						fmt.Println(err)
+						return err, nil
+					} else {
+						fmt.Printf("json: %s\n", string(jsonObject))
+						publish(jsonObject)
+						return jsonObject, nil
 					}
-					return nil, nil*/
 				},
 			},
 		},
@@ -143,6 +120,12 @@ var schema, _ = graphql.NewSchema(
 		Query: queryType,
 	},
 )
+
+func createTask(args map[string]interface {}) map[string]interface {} {
+	var task = args
+	task["pid"] = rand.Intn(1000)
+	return task
+}
 
 func execute(query string, schema graphql.Schema) *graphql.Result {
 	result := graphql.Do(graphql.Params{
@@ -155,8 +138,41 @@ func execute(query string, schema graphql.Schema) *graphql.Result {
 	return result
 }
 
-func main() {
+func publish(message []byte) {
+
+	conn, err := amqp.Dial(RABBITMQ_URL)
+	failOnError(err, "Failed to connect to RabbitMQ")
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	failOnError(err, "Failed to open a channel")
+	defer ch.Close()
 	
+	ch.QueueDeclare(
+	  QUEUE_NAME, // name
+	  false,   // durable
+	  false,   // delete when unused
+	  false,   // exclusive
+	  false,   // no-wait
+	  nil,     // arguments
+	)
+
+	// BEGIN publishing to queue:
+	err = ch.Publish(
+	  "",     // exchange
+	  QUEUE_NAME, // routing key
+	  false,  // mandatory
+	  false,  // immediate
+	  amqp.Publishing {
+	    ContentType: "application/json",
+	    Body:        message,
+	  })
+	failOnError(err, "Failed to publish a message")
+	// END publishing to queue.
+}
+
+func startConsumers() {
+
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
@@ -165,8 +181,8 @@ func main() {
 	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
 	
-	q, err := ch.QueueDeclare(
-	  "hello", // name
+	ch.QueueDeclare(
+	  QUEUE_NAME, // name
 	  false,   // durable
 	  false,   // delete when unused
 	  false,   // exclusive
@@ -174,26 +190,9 @@ func main() {
 	  nil,     // arguments
 	)
 
-	failOnError(err, "Failed to declare a queue")
-
-
-	// BEGIN publishing to queue:
-	body := "hello"
-	err = ch.Publish(
-	  "",     // exchange
-	  q.Name, // routing key
-	  false,  // mandatory
-	  false,  // immediate
-	  amqp.Publishing {
-	    ContentType: "text/plain",
-	    Body:        []byte(body),
-	  })
-	failOnError(err, "Failed to publish a message")
-	// END publishing to queue.
-
 	// BEGIN Consuming queue:
 	msgs, err := ch.Consume(
-	  q.Name, // queue
+	  QUEUE_NAME, // queue
 	  "",     // consumer
 	  true,   // auto-ack
 	  false,  // exclusive
@@ -207,30 +206,30 @@ func main() {
 
 	go func() {
 	  for d := range msgs {
-	    log.Printf("Received a message: %s", d.Body)
+	    fmt.Printf("Received a message: %s", d.Body)
 	  }
 	}()
 
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+	fmt.Printf(" [*] Waiting for messages. To exit press CTRL+C")
 	<-forever
 	// END Consuming queue:
+}
 
-	//_ = importJSONDataFromFile("data.json", &data)
+func main() {
 
 	http.HandleFunc("/execute", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("Came here!!!")
 		result := execute(r.URL.Query().Get("request"), schema)
 		json.NewEncoder(w).Encode(result)
-		fmt.Println("Finalizend")
-		fmt.Println(tasks_queue)
+
 	})
 
 	http.HandleFunc("/result", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Got the result!")
 	})
 
-	fmt.Println("Now server is running on port 8080")
-	fmt.Println("Test with Get      : curl -g 'http://localhost:8080/graphql?query={user(id:\"1\"){name}}'")
+	startConsumers()
+
+	fmt.Println("Now server is running on http://localhost:8080")
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -240,20 +239,3 @@ func failOnError(err error, msg string) {
     panic(fmt.Sprintf("%s: %s", msg, err))
   }
 }
-/*
-//Helper function to import json from file to map
-func importJSONDataFromFile(fileName string, result interface{}) (isOK bool) {
-	isOK = true
-	content, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		fmt.Print("Error:", err)
-		isOK = false
-	}
-	err = json.Unmarshal(content, result)
-	if err != nil {
-		isOK = false
-		fmt.Print("Error:", err)
-	}
-	return
-}
-*/
