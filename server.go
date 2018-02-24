@@ -7,14 +7,19 @@ import (
 	"net/http"
 
 	"github.com/graphql-go/graphql"
+	"github.com/mitchellh/mapstructure"
 )
 
-type user struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+type request struct {
+	method string// `json:"name"`
+	url   string// `json:"id"`
+	body   string// `json:"id"`
+	headers   string// `json:"id"`
+	callback_url   string// `json:"id"`
+	pid   string// `json:"id"`
 }
 
-var data map[string]user
+var tasks_queue map[string]request
 
 /*
    Create User object type with fields "id" and "name" by using GraphQLObjectTypeConfig:
@@ -22,14 +27,26 @@ var data map[string]user
        - Fields: a map of fields by using GraphQLFields
    Setup type of field use GraphQLFieldConfig
 */
-var userType = graphql.NewObject(
+var requestType = graphql.NewObject(
 	graphql.ObjectConfig{
-		Name: "User",
+		Name: "Request",
 		Fields: graphql.Fields{
-			"id": &graphql.Field{
+			"method": &graphql.Field{
 				Type: graphql.String,
 			},
-			"name": &graphql.Field{
+			"url": &graphql.Field{
+				Type: graphql.String,
+			},
+			"body": &graphql.Field{
+				Type: graphql.String,
+			},
+			"headers": &graphql.Field{
+				Type: graphql.String,
+			},
+			"callback_url": &graphql.Field{
+				Type: graphql.String,
+			},
+			"pid": &graphql.Field{
 				Type: graphql.String,
 			},
 		},
@@ -49,19 +66,37 @@ var queryType = graphql.NewObject(
 	graphql.ObjectConfig{
 		Name: "Query",
 		Fields: graphql.Fields{
-			"user": &graphql.Field{
-				Type: userType,
+			"request": &graphql.Field{
+				Type: requestType,
 				Args: graphql.FieldConfigArgument{
-					"id": &graphql.ArgumentConfig{
+					"method": &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+					"url": &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+					"body": &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+					"headers": &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+					"callback_url": &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+					"pid": &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					idQuery, isOK := p.Args["id"].(string)
+					fmt.Println("Came here :)")
+					fmt.Println(p.Args)
+					return "Some random pid.", nil
+					/*idQuery, isOK := p.Args["id"].(string)
 					if isOK {
 						return data[idQuery], nil
 					}
-					return nil, nil
+					return nil, nil*/
 				},
 			},
 		},
@@ -73,7 +108,7 @@ var schema, _ = graphql.NewSchema(
 	},
 )
 
-func executeQuery(query string, schema graphql.Schema) *graphql.Result {
+func execute(query string, schema graphql.Schema) *graphql.Result {
 	result := graphql.Do(graphql.Params{
 		Schema:        schema,
 		RequestString: query,
@@ -85,11 +120,17 @@ func executeQuery(query string, schema graphql.Schema) *graphql.Result {
 }
 
 func main() {
-	_ = importJSONDataFromFile("data.json", &data)
+	//_ = importJSONDataFromFile("data.json", &data)
 
-	http.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
-		result := executeQuery(r.URL.Query().Get("query"), schema)
+	http.HandleFunc("/execute", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Came here!!!")
+		result := execute(r.URL.Query().Get("request"), schema)
 		json.NewEncoder(w).Encode(result)
+		fmt.Println("Finalizend")
+	})
+
+	http.HandleFunc("/result", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Got the result!")
 	})
 
 	fmt.Println("Now server is running on port 8080")
