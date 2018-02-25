@@ -1,6 +1,6 @@
 # asynctopus
 
-A docker application to turn synchronos requests into asynchronos calls.
+A docker application to turn synchronos requests into asynchronos calls. It's based on rabbitmq messaging system, so it's required you have a rabbitmq instance running on your machine. For development, I highly suggest you use a docker image for that. Check https://hub.docker.com/_/rabbitmq/.
 
 ## Main Technologies:
 * GoLang
