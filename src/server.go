@@ -260,7 +260,7 @@ func main() {
 	
 	go startConsumers()
 
-	fmt.Println("Now server is running on http://localhost:8080")
+	fmt.Println("Now server is running on http://localhost:8079")
 	http.ListenAndServe(":8079", nil)
 }
 
