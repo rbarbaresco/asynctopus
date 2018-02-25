@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"math/rand"
 	"bytes"
-
+	"os"
 	"github.com/graphql-go/graphql"
 	"github.com/streadway/amqp"
 )
@@ -26,9 +26,8 @@ type Request struct {
 	//executing bool
 }
 
-var QUEUE_NAME = "asynctopus_task_queue"
-var RABBITMQ_URL = "amqp://guest:guest@localhost:5672/"
-var CONSUMERS_SIZE = 5
+var QUEUE_NAME = getEnv("QUEUE_NAME", "asynctopus_task_queue")
+var RABBITMQ_URL = getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
 /*
    Create User object type with fields "id" and "name" by using GraphQLObjectTypeConfig:
@@ -171,7 +170,7 @@ func publish(message []byte) {
 
 func startConsumers() {
 
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	conn, err := amqp.Dial(RABBITMQ_URL)
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 
@@ -269,4 +268,11 @@ func failOnError(err error, msg string) {
     fmt.Printf("%s: %s", msg, err)
     panic(fmt.Sprintf("%s: %s", msg, err))
   }
+}
+
+func getEnv(name, defaultValue string) string {
+	if value, ok := os.LookupEnv(name); ok {
+		return value
+	}
+	return defaultValue
 }
