@@ -7,11 +7,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	//"io/ioutil"
+	"io/ioutil"
 	"net/http"
 	//"time"
 	//"log"
 	"math/rand"
+	"bytes"
 
 	"github.com/graphql-go/graphql"
 	//"github.com/adjust/rmq"
@@ -19,12 +20,12 @@ import (
 )
 
 type Request struct {
-	method string 			`json:"method"`
-	url   string 			`json:"url"`
-	body   string 			`json:"body"`
-	headers   string 		`json:"headers"`
-	callback_url   string 	`json:"callback_url"`
-	pid   string 			`json:"pid"`
+	TargetUrl   string 	`json:"target_url"`
+	Method 		string 	`json:"method"`
+	Body   		string 	`json:"body"`
+	Headers   	string 	`json:"headers"`
+	CallbackUrl string 	`json:"callback_url"`
+	Pid   		int 	`json:"pid"`
 	//executing bool
 }
 
@@ -45,7 +46,7 @@ var requestType = graphql.NewObject(
 			"method": &graphql.Field{
 				Type: graphql.String,
 			},
-			"url": &graphql.Field{
+			"target_url": &graphql.Field{
 				Type: graphql.String,
 			},
 			"body": &graphql.Field{
@@ -83,9 +84,6 @@ var queryType = graphql.NewObject(
 					"method": &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
-					"url": &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
 					"body": &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
@@ -93,6 +91,9 @@ var queryType = graphql.NewObject(
 						Type: graphql.String,
 					},
 					"callback_url": &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+					"target_url": &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
 					"pid": &graphql.ArgumentConfig{
@@ -210,25 +211,36 @@ func startConsumers() {
 	  }
 	}()
 
-	fmt.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+	fmt.Println(" [*] Waiting for messages. To exit press CTRL+C")
 	<-forever
 	// END Consuming queue:
 }
 
-func consume(message []byte) {
-    fmt.Printf("Received a message: %s", message)
-	/*client := &http.Client{
-		CheckRedirect: redirectPolicyFunc,
-	}
+func makeRequest(method string, targetUrl string, body []byte) []byte {
 
-	resp, err := client.Get("http://example.com")
+	client := &http.Client{}
+	req, err := http.NewRequest(method, targetUrl, bytes.NewBuffer(body))
 	// ...
-
-	req, err := http.NewRequest("GET", "http://example.com", nil)
-	// ...
-	req.Header.Add("If-None-Match", `W/"wyzzy"`)
+	//req.Header.Add("If-None-Match", `W/"wyzzy"`)
 	resp, err := client.Do(req)
-	*/
+
+	failOnError(err, "Error in request.")
+
+	defer resp.Body.Close()
+    body, err = ioutil.ReadAll(resp.Body)
+	failOnError(err, "Error reading response.")
+	return body
+}
+
+func consume(message []byte) {
+    fmt.Printf("Received a message: %s\n", message)
+
+    var request Request
+    json.Unmarshal(message, &request)
+    fmt.Printf("request.all: %+v\n", request)
+
+    var response = makeRequest(request.Method, request.TargetUrl, nil)
+    makeRequest("POST", request.CallbackUrl, response)
 }
 
 func main() {
@@ -241,6 +253,12 @@ func main() {
 
 	http.HandleFunc("/result", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Got the result!")
+		body, err := ioutil.ReadAll(r.Body)
+		failOnError(err, "Wrror reading request body.")
+
+		var data map[string]interface{}
+		json.Unmarshal(body, &data)
+		fmt.Println(data)
 	})
 	
 	go startConsumers()
