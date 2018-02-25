@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  asynctopus:
+    build: .
+    container_name: asynctopus
+    ports:
+      - "8079:8079"
+    env_file:
+      - .dev.env
+    restart: always

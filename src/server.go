@@ -9,13 +9,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	//"time"
-	//"log"
 	"math/rand"
 	"bytes"
 
 	"github.com/graphql-go/graphql"
-	//"github.com/adjust/rmq"
 	"github.com/streadway/amqp"
 )
 
@@ -264,7 +261,7 @@ func main() {
 	go startConsumers()
 
 	fmt.Println("Now server is running on http://localhost:8080")
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":8079", nil)
 }
 
 func failOnError(err error, msg string) {
