@@ -28,6 +28,7 @@ request(  
   headers: "Not yet working" // In the near future, it will work, I promise!  
   callback_url: "http://myapplication.com/receiver" // The callback url which asynctopus must POST respond with the body content of the given request.  
 )
+{pid} // It will tell asynctopus to return the pid for this request. Keep it safe so you can identify the response.
 ```
 /execute?request={request(target_url:"http://example.com",method:"GET",callback_url:"http://myapplication.com/receiver"){pid}}
 
