@@ -206,13 +206,29 @@ func startConsumers() {
 
 	go func() {
 	  for d := range msgs {
-	    fmt.Printf("Received a message: %s", d.Body)
+	    consume(d.Body)
 	  }
 	}()
 
 	fmt.Printf(" [*] Waiting for messages. To exit press CTRL+C")
 	<-forever
 	// END Consuming queue:
+}
+
+func consume(message []byte) {
+    fmt.Printf("Received a message: %s", message)
+	/*client := &http.Client{
+		CheckRedirect: redirectPolicyFunc,
+	}
+
+	resp, err := client.Get("http://example.com")
+	// ...
+
+	req, err := http.NewRequest("GET", "http://example.com", nil)
+	// ...
+	req.Header.Add("If-None-Match", `W/"wyzzy"`)
+	resp, err := client.Do(req)
+	*/
 }
 
 func main() {
@@ -226,8 +242,8 @@ func main() {
 	http.HandleFunc("/result", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Got the result!")
 	})
-
-	startConsumers()
+	
+	go startConsumers()
 
 	fmt.Println("Now server is running on http://localhost:8080")
 	http.ListenAndServe(":8080", nil)
