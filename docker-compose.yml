@@ -9,3 +9,11 @@ services:
     env_file:
       - .dev.env
     restart: always
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "8070:15672"
+      - "5672:5672"
+    restart: always
