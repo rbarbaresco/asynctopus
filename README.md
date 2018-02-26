@@ -42,3 +42,6 @@ This request will return the pid for this call, which you will use to identify i
   }
 }
 ```
+
+### IMPORTANT
+Because asynctopus do not deal yet with the content-type of the response, it can't format it in the right way. So it will always respond to the callback_url with a byte response, as it's a generic way to send data.
