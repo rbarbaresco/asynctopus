@@ -25,8 +25,10 @@ request(  
   target_url: "http://example.com" // The url to make the service call  
   method: "GET" // The http method you wish to make the service call  
   body: "some body content" // If you are making a body based request, you may fill this field  
-  headers: "Not yet working" // In the near future, it will work, I promise!  
+  headers: "Will be replaced by target_headers" // In the near future, it will be replaced by callback_headers.  
   callback_url: "http://myapplication.com/receiver" // The callback url which asynctopus must POST respond with the body content of the given request.  
+  target_headers: "Not yet working" // In the near future, it will work, I promise!  
+  callback_headers: "Not yet added" // In the near future, it will work, I promise!  
 )
 {pid} // It will tell asynctopus to return the pid for this request. Keep it safe so you can identify the response.
 ```
